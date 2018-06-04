@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<title>2D plotter</title>
+<!-- Based on http://www.javascripter.net/faq/plotafunctiongraph.htm -->
+
+<aside>
+	<div class=code>
+		<textarea>
+function fun1(x) {return Math.sin(x);  }
+function fun2(x) {return Math.cos(3*x);}
+plot(fun1,"rgb(11,153,11)",1); 
+plot(fun2,"rgb(66,44,255)",2);
+		</textarea>
+		<button>plot (strg + enter)</button>
+		<pre class=error></pre>
+	</div>
+	<div>
+		<p>Foo bar</p>
+	</div>
+</aside>
+<canvas class=plot></canvas>
+
+<style>
+	/* Main layout */
+	html { height: 100%; margin: 0; padding: 0; font-size: 14px; }
+	body { display: flex; height: 100%; margin: 0; padding: 0; }
+	body > aside { flex: 0 0 auto; }
+	body > canvas { flex: 1 1 auto; min-width: 1px; }
+	
+	/* Sidebar layout, the textarea dictates the width of the sidebar (the user can extend it). */
+	/* The error message pre is defined as table-caption so it doesn't extend sidebars width to fit it's content. */
+	body > aside { margin: 0; padding: 0.5em; background: hsl(0, 0%, 90%); }
+	body > aside > div.code { display: table; caption-side: bottom; }
+	body > aside > div.code > textarea { display: block; min-width: 300px; width: 400px; min-height: 300px;
+		margin: 0 0 0.5em 0; padding: 0.25em; font-size: inherit; }
+	body > aside > div.code > pre { display: table-caption; white-space: pre-line; word-break: break-all;
+		margin: 0.5em 0 0 0; padding: 0.5em;
+		color: hsl(0, 100%, 50%); background: hsl(0, 100%, 95%);  border: 1px solid hsl(0, 100%, 85%); }
+	body > aside > div.code > pre:not(.active) { display: none; }
+	
+	textarea { white-space: pre; }
+</style>
+
+<script src="plotter.js"></script>
+<script>
+	(function(){
+		var plot = plotter(document.querySelector("canvas.plot"));
+		var textarea = document.querySelector(".code > textarea");
+		
+		function tryUpdateCodePlot() {
+			var error = plot.update(textarea.value);
+			var error_element = document.querySelector("pre.error");
+			if (error === null) {
+				error_element.classList.remove("active");
+			} else {
+				error_element.textContent = error;
+				error_element.classList.add("active");
+			}
+		}
+		
+		textarea.addEventListener("input", tryUpdateCodePlot);
+		document.querySelector("button").addEventListener("click", tryUpdateCodePlot);
+		document.addEventListener("keydown", function(event){
+			if (event.key == "Enter" && event.ctrlKey) {
+				tryUpdateCodePlot();
+				event.stopPropagation();
+				event.preventDefault();
+			}
+		});
+	})();
+</script>
