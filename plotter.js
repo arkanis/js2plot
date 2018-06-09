@@ -168,6 +168,9 @@ function plotter(canvas, options) {
 					dash_pattern = arguments[i];
 			}
 			
+			if (func === null)
+				return;
+			
 			ctx.beginPath();
 			ctx.strokeStyle = color;
 			ctx.lineWidth = width;
@@ -189,6 +192,11 @@ function plotter(canvas, options) {
 		if (parsed_code !== null)
 			parsed_code(plot);
 		return null;
+	}
+	
+	function triggerEvent(name) {
+		var event = new Event(name);
+		ctx.canvas.dispatchEvent(event);
 	}
 	
 	var mouse_down = false, last_pos = { x: 0, y: 0 };
@@ -215,6 +223,7 @@ function plotter(canvas, options) {
 			view_center_ws.x -= dx_vs / ws_to_vs_scale * 1;
 			view_center_ws.y -= dy_vs / ws_to_vs_scale * -1;
 			draw();
+			triggerEvent("plotchange");
 			
 			event.stopPropagation();
 			event.preventDefault();
@@ -223,6 +232,7 @@ function plotter(canvas, options) {
 	ctx.canvas.addEventListener("mouseup", function(event){
 		if (mouse_down) {
 			mouse_down = false;
+			triggerEvent("plotchangeend");
 			event.stopPropagation();
 			event.preventDefault();
 		}
@@ -251,6 +261,11 @@ function plotter(canvas, options) {
 		view_center_ws = view_center_new;
 		view_scale *= scale_multiplier;
 		draw();
+		triggerEvent("plotchange");
+		triggerEvent("plotchangeend");
+		
+		event.stopPropagation();
+		event.preventDefault();
 	});
 	
 	return {
@@ -261,11 +276,30 @@ function plotter(canvas, options) {
 			// So try to parse it first before clearing the plot.
 			try {
 				parsed_code = Function("plot", code);
+				draw();
 			} catch(e) {
 				console.error(e);
 				return e.toString();
 			}
-			return draw();
+			triggerEvent("plotchange");
+			return null;
+		},
+		
+		scale: function(new_scale){
+			if (new_scale !== undefined) {
+				view_scale = new_scale;
+				return this;
+			} else {
+				return view_scale;
+			}
+		},
+		center: function(new_view_center_x, new_view_center_y){
+			if (new_view_center_x !== undefined && new_view_center_y !== undefined) {
+				view_center_ws = { x: new_view_center_x, y: new_view_center_y };
+				return this;
+			} else {
+				return { x: view_center_ws.x, y: view_center_ws.y };
+			}
 		}
 	};
 }

@@ -1,18 +1,55 @@
 <!DOCTYPE html>
-<title>2D plotter</title>
-<!-- Based on http://www.javascripter.net/faq/plotafunctiongraph.htm -->
+<meta charset=utf-8>
+<title>js2plot</title>
+<meta name=author content="Stephan Soller">
+<meta name=description content="Plots mathematical functions written in JavaScript">
 
 <aside>
-	<div class=code>
-		<textarea>function fun1(x) {return Math.sin(x);  }
-function fun2(x) {return Math.cos(3*x);}
-plot(fun1,"rgb(11,153,11)",1); 
-plot(fun2,"rgb(66,44,255)",2);</textarea>
-		<button>plot (strg + enter)</button>
-		<pre class=error></pre>
-	</div>
 	<div>
-		<p>Foo bar</p>
+		<div>
+			<h1>js2plot</h1>
+			<p>by <a href="http://arkanis.de/">Stephan Soller</a></p>
+			
+			<p>This tool plots mathematical functions written in JavaScript. I wanted to plot code that is
+			difficult to express in mathematical expressions used by other plotters. If you want to write
+			your functions in math expressions use <a href="https://www.desmos.com/calculator">other</a>
+			<a href="https://silentmatt.com/javascript-function-plotter/">tools</a>.</p>
+			
+			<p class=examples>Examples:</p>
+			<ul class=examples>
+				<li><a href="#0:0:1:var%20a%20%3D%20(x)%20%3D%3E%20Math.sin(x)%3B%0Avar%20b%20%3D%20(x)%20%3D%3E%20Math.cos(20*x)%20*%200.25%3B%0A%0Aplot(%22green%22%2C%20a)%3B%0Aplot(%22blue%22%2C%20b)%3B%0Aplot(%22red%22%2C%20(x)%20%3D%3E%20Math.abs(a(x))%20%2B%20b(x))%3B">Combining functions</a></li>
+				<li><a href="#1.5:0:1.5:var%20a%20%3D%20(x)%20%3D%3E%20Math.abs(x%20-%203)%20*%200.5%3B%0Avar%20b%20%3D%20(x)%20%3D%3E%20Math.abs(x%20-%200)%20*%200.5%3B%0A%0Aplot(%22green%22%2C%20a)%3B%0Aplot(%22blue%22%2C%20b)%3B%0A%0A%2F%2F%20polynomial%20smooth%20min%20(k%20%3D%200.5)%20from%0A%2F%2F%20http%3A%2F%2Fwww.iquilezles.org%2Fwww%2Farticles%2Fsmin%2Fsmin.htm%0Afunction%20clamp(x%2C%20minVal%2C%20maxVal)%20%7B%0A%20%20return%20Math.min(Math.max(x%2C%20minVal)%2C%20maxVal)%3B%0A%7D%0Afunction%20mix(x%2C%20y%2C%20a)%20%7B%0A%20%20return%20x*(1-a)%20%2B%20y*a%3B%0A%7D%0Afunction%20smin(a%2C%20b%2C%20k)%20%7B%0A%20%20var%20h%20%3D%20clamp(%200.5%2B0.5*(b-a)%2Fk%2C%200.0%2C%201.0%20)%3B%0A%20%20return%20mix(%20b%2C%20a%2C%20h%20)%20-%20k*h*(1.0-h)%3B%0A%7D%0Aplot(%22red%22%2C%20(x)%20%3D%3E%20smin(a(x)%2C%20b(x)%2C%200.5))">Smooth min</a></li>
+			</ul>
+		</div>
+		<div>
+			<textarea class=code></textarea>
+			
+			<div>
+				<pre class=error></pre>
+				
+				<p>
+					Share with others: <a href="" id=share>Link to this plot</a>.
+				</p>
+				
+				<h2>Controls and documentation</h2>
+				
+				<p>The plot is updated each time you change the JavaScript code.</p>
+				<p>Click and drag the plot to pan around. Use the mousewheel to zoom in or out.</p>
+				
+				<p>You can display a function in the plot by calling <code>plot(args...)</code>.
+				It takes its parameters in any order. What an argument does depends on its type:</p>
+				<ul class=args>
+					<li><code>function</code>: Plots the graph of that function.
+						It is called for each x value and has to return the corresponding y value.
+					<li><code>string</code> (e.g. <code>"red"</code> or <code>"hsla(210, 50%, 50%, 0.25)"</code>):
+						The graph will be drawn in that color (default <code>"blue"</code>).
+					<li><code>number</code> (e.g. <code>2</code>): It is used as the line width in pixels for the graph (default <code>1</code>).
+					<li><code>array</code> (e.g. <code>[10, 5]</code>): It is used to dash lines of the graph.
+						The elements specify distances to alternately draw a line and a gap in pixels.
+						See <a href="https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/setLineDash">setLineDash</a>.
+				</ul>
+			</div>
+		</div>
 	</div>
 </aside>
 <canvas class=plot></canvas>
@@ -25,41 +62,108 @@ plot(fun2,"rgb(66,44,255)",2);</textarea>
 	body > canvas { flex: 1 1 auto; min-width: 1px; }
 	
 	/* Sidebar layout, the textarea dictates the width of the sidebar (the user can extend it). */
-	/* The error message pre is defined as table-caption so it doesn't extend sidebars width to fit it's content. */
-	body > aside { margin: 0; padding: 0.5em; background: hsl(0, 0%, 90%); }
-	body > aside > div.code { display: table; caption-side: bottom; }
-	body > aside > div.code > textarea { display: block; min-width: 300px; width: 400px; min-height: 300px;
-		margin: 0 0 0.5em 0; padding: 0.25em; font-size: inherit; }
-	body > aside > div.code > pre { display: table-caption; white-space: pre-line; word-break: break-all;
+	/* The rest is nested into table-captions so it doesn't impact the width calculation of the sidebar area. */
+	/* Thats why the content is nested in this strange way: On table with a table caption above the textarea, */
+	/* and one table in that with a caption below the text area. */
+	aside { overflow: auto; }
+	aside > div { display: table; }
+	aside > div > div:nth-of-type(1) { display: table-caption; }
+	aside > div > div:nth-of-type(2) { display: table; caption-side: bottom; }
+	aside > div > div:nth-of-type(2) > textarea { display: block; min-width: 300px; width: 400px; min-height: 320px; }
+	aside > div > div:nth-of-type(2) > div { display: table-caption; }
+	
+	/* Typography, colors, etc. */
+	body { font-family: sans-serif; font-size: 14px; }
+	aside { margin: 0; padding: 0.75em; color: hsl(0, 0%, 10%); background: hsl(0, 0%, 95%); }
+	
+	h1 { font-size: 1.5em; margin: 0; padding: 0; display: inline; }
+	h1 + p { display: inline; }
+	p { margin: 0.75em 0; padding: 0; }
+	p.examples { display: inline; }
+	ul.examples { display: inline; margin: 0; padding: 0; list-style: none; }
+	ul.examples > li { display: inline; }
+	ul.examples > li::after { content: ', '; }
+	ul.examples > li:last-of-type::after { content: none; }
+	a { color: hsl(210, 100%, 40%); text-decoration: none; }
+	a:hover, a:focus, a:active { text-decoration: underline; }
+	
+	textarea.code { margin: 0.75em 0; padding: 0.25em; font-size: inherit; white-space: pre; }
+	pre.error { white-space: pre-line; word-break: break-all;
 		margin: 0.5em 0 0 0; padding: 0.5em;
 		color: hsl(0, 100%, 50%); background: hsl(0, 100%, 95%);  border: 1px solid hsl(0, 100%, 85%); }
-	body > aside > div.code > pre:not(.active) { display: none; }
+	pre.error:not(.active) { display: none; }
+	pre.error + p { margin-top: 0; }
 	
-	textarea { white-space: pre; }
+	h2 { font-size: 1.25em; margin: 1em 0 0 0; padding: 0; }
+	ul.args { margin: 0.5em 0; padding: 0 0 0 1.25em; }
+	ul.args > li { margin: 0.25em 0; padding: 0; }
 </style>
 
 <script src="plotter.js"></script>
 <script>
 	(function(){
-		var plot = plotter(document.querySelector("canvas.plot"));
-		var textarea = document.querySelector(".code > textarea");
+		var textarea = document.querySelector("textarea.code");
+		var canvas = document.querySelector("canvas.plot");
+		var plot = plotter(canvas);
 		
 		function tryUpdateCodePlot() {
 			var error = plot.update(textarea.value);
 			var error_element = document.querySelector("pre.error");
 			if (error === null) {
 				error_element.classList.remove("active");
+				return true;
 			} else {
 				error_element.textContent = error;
 				error_element.classList.add("active");
+				return false;
 			}
 		}
 		
+		function tryLoadFromUrlHash(hash) {
+			var parts = hash.substr(1).split(":", 4);
+			if (parts.length != 4)
+				return false;
+			
+			plot.center(parseFloat(parts[0]), parseFloat(parts[1]));
+			plot.scale(parseFloat(parts[2]));
+			textarea.value = decodeURIComponent(parts[3]);
+			tryUpdateCodePlot();
+			return true;
+		}
+		
+		window.addEventListener("DOMContentLoaded", function(){
+			// Either load the data from the URL hash or the data from the first example if there is none
+			if ( ! tryLoadFromUrlHash(window.location.hash) ) {
+				var firstExampleHash = document.querySelector("ul.examples > li:first-of-type > a").getAttribute("href");
+				tryLoadFromUrlHash(firstExampleHash);
+			}
+		});
+		
+		window.addEventListener("hashchange", function(){
+			tryLoadFromUrlHash(window.location.hash);
+		});
+		
 		textarea.addEventListener("input", tryUpdateCodePlot);
-		document.querySelector("button").addEventListener("click", tryUpdateCodePlot);
-		document.addEventListener("keydown", function(event){
-			if (event.key == "Enter" && event.ctrlKey) {
-				tryUpdateCodePlot();
+		
+		// Update hash of share link and URL in the address bar with the new data without triggering the
+		// hashchange event (that's why we use history.replaceState()).
+		document.querySelector("canvas.plot").addEventListener("plotchangeend", function(){
+			var hashForCurrentPlot = "#" + [plot.center().x, plot.center().y, plot.scale(), encodeURIComponent(textarea.value)].join(":");
+			document.querySelector("a#share").setAttribute("href", hashForCurrentPlot);
+			window.history.replaceState(null, null, window.location.pathname + hashForCurrentPlot);
+		});
+		
+		
+		//
+		// Insert 2 spaces when tab is pressed in the textarea (instead of changing focus to the next control)
+		//
+		var tab_str = "  ";
+		textarea.addEventListener("keydown", function(event){
+			if (event.key == "Tab") {
+				var at_index = this.selectionStart;
+				this.value = this.value.substr(0, at_index) + tab_str + this.value.substr(at_index);
+				this.setSelectionRange(at_index + tab_str.length, at_index + tab_str.length);
+				
 				event.stopPropagation();
 				event.preventDefault();
 			}
