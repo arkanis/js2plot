@@ -7,7 +7,7 @@
  * By Stephan Soller <stephan.soller@helionweb.de>, released under the MIT License.
  * 
  * 
- * # Features
+ * ## Features
  * 
  * - You can write the functions directly in JavaScript. For more complex functions this is
  *   simpler than writing math expressions.
@@ -16,7 +16,7 @@
  * - Triggers "plotchange" and "plotchangeend" events when the user interacts with the plot.
  * 
  * 
- * # Usage example
+ * ## Usage example
  * 
  *     <!DOCTYPE html>
  *     <meta charset=utf-8>
@@ -38,7 +38,7 @@
  *     </script>
  * 
  * 
- * # Documentation
+ * ## Documentation
  * 
  * Call the js2plot() function to wrap a canvas element into a plot. You can then plot different
  * JavaScript code with the plots update() function. See the documentation at the end of the
@@ -76,7 +76,7 @@
  *       way. Default: Calls toString() on the number.
  * 
  * 
- * # Events
+ * ## Events
  * 
  * js2plot fires several events on the canvas element when the plot has changed.
  * 
