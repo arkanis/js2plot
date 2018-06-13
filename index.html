@@ -33,8 +33,7 @@
 				
 				<h2>Controls and documentation</h2>
 				
-				<p>The plot is updated each time you change the JavaScript code.</p>
-				<p>Click and drag the plot to pan around. Use the mousewheel to zoom in or out.</p>
+				<p>The plot is updated each time you change the JavaScript code. Click and drag the plot to pan around. Use the mousewheel to zoom in or out.</p>
 				
 				<p>You can display a function in the plot by calling <code>plot(args...)</code>.
 				It takes its parameters in any order. What an argument does depends on its type:</p>
@@ -74,11 +73,11 @@
 	
 	/* Typography, colors, etc. */
 	body { font-family: sans-serif; font-size: 14px; }
-	aside { margin: 0; padding: 0.75em; color: hsl(0, 0%, 10%); background: hsl(0, 0%, 95%); }
+	aside { margin: 0; padding: 0.75em 0.75em 0 0.75em; color: hsl(0, 0%, 10%); background: hsl(0, 0%, 95%); }
 	
 	h1 { font-size: 1.5em; margin: 0; padding: 0; display: inline; }
 	h1 + p { display: inline; }
-	p { margin: 0.75em 0; padding: 0; }
+	p { margin: 0.5em 0; padding: 0; }
 	p.examples { display: inline; }
 	ul.examples { display: inline; margin: 0; padding: 0; list-style: none; }
 	ul.examples > li { display: inline; }
@@ -87,15 +86,15 @@
 	a { color: hsl(210, 100%, 40%); text-decoration: none; }
 	a:hover, a:focus, a:active { text-decoration: underline; }
 	
-	textarea.code { margin: 0.75em 0; padding: 0.25em; font-size: inherit; white-space: pre; }
+	textarea.code { margin: 0.5em 0; padding: 0.25em; font-size: inherit; white-space: pre; }
 	pre.error { white-space: pre-line; word-break: break-all;
-		margin: 0.5em 0 0 0; padding: 0.5em;
+		margin: 0.5em 0; padding: 0.5em;
 		color: hsl(0, 100%, 50%); background: hsl(0, 100%, 95%);  border: 1px solid hsl(0, 100%, 85%); }
 	pre.error:not(.active) { display: none; }
 	pre.error + p { margin-top: 0; }
 	
 	h2 { font-size: 1.25em; margin: 1em 0 0 0; padding: 0; }
-	ul.args { margin: 0.5em 0; padding: 0 0 0 1.25em; }
+	ul.args { margin: 0.5em 0 0 0; padding: 0 0 0 1.25em; }
 	ul.args > li { margin: 0.25em 0; padding: 0; }
 </style>
 
@@ -104,18 +103,16 @@
 	(function(){
 		var textarea = document.querySelector("textarea.code");
 		var canvas = document.querySelector("canvas.plot");
-		var plot = plotter(canvas);
+		var plot = js2plot(canvas);
 		
 		function tryUpdateCodePlot() {
 			var error = plot.update(textarea.value);
 			var error_element = document.querySelector("pre.error");
-			if (error === null) {
-				error_element.classList.remove("active");
-				return true;
-			} else {
-				error_element.textContent = error;
+			if (error instanceof Error) {
+				error_element.textContent = error.toString();
 				error_element.classList.add("active");
-				return false;
+			} else {
+				error_element.classList.remove("active");
 			}
 		}
 		

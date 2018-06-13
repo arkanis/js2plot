@@ -1,4 +1,4 @@
-function plotter(canvas, options) {
+function js2plot(canvas, options) {
 	var base_width_ws = 10;
 	var grid_line_spacing_ws = 1/5;
 	var major_grid_lines_every_n = 5;
@@ -8,52 +8,78 @@ function plotter(canvas, options) {
 	var view_center_ws = { x: 0, y: 0 };
 	
 	var ctx = (typeof canvas == "string" ? document.querySelector(canvas) : canvas).getContext("2d");
-	var parsed_code = null;
+	var last_working_user_code_function = null;
 	
+	
+	//
+	// Code for transformation between world and view space
+	//
+	
+	// World to view space scale: A world space distance multiplied with this value gives us the view space distance.
+	// It is only changed by updateCanvasSizeAndRedraw().
+	var ws_to_vs_scale = 1.0;
+	
+	// Transformations from world space to view space and back (for x and y)
+	function x_ws_to_vs(x_ws) {
+		return (ctx.canvas.width / 2) + (x_ws - view_center_ws.x) * ws_to_vs_scale * 1;
+	}
+	function y_ws_to_vs(y_ws) {
+		return (ctx.canvas.height / 2) + (y_ws - view_center_ws.y) * ws_to_vs_scale * -1;
+	}
+	function x_vs_to_ws(x_vs) {
+		return view_center_ws.x + (x_vs - ctx.canvas.width / 2) / ws_to_vs_scale * 1;
+	}
+	function y_vs_to_ws(y_vs) {
+		return view_center_ws.y + (y_vs - ctx.canvas.height / 2) / ws_to_vs_scale * -1;
+	}
+	
+	
+	//
+	// Drawing code
+	//
 	
 	/**
-	 * Settings:
-	 * 	world space base size (in ws units)
-	 * 	grid line spacing (in ws units at scale 1.0)
-	 * 	label spacing (on every nth grid line)
-	 * 	view space step size (in px)
-	 * Update canvas dimensions and clear canvas
-	 * Space:
-	 * 	Calculate scale (needed for transformation between world and view space)
-	 * 	Calculate limits of of view in world_space (x min/max, y min/max)
-	 * Draw grid
-	 * 	Grid line interval: Grid line every n ws units / scale (so we get a grid line every 2 ws units when scale is 0.5)
-	 * 	Start line: Round down to get start grid line
-	 * 	End line: Round up to get end grid line
-	 * 	Axes: Draw axes lines in black at x/y world space = 0
-	 * 	Labels: On axes on every n grid line?
-	 * 		Calc start and end index for x/y labels and draw text for them
-	 * 		One pass for x, one for y labels
-	 * Call user code to plot functions
-	 * 	Plot user function:
-	 * 		Iterate from view space x min (0) to x max (canvas width - 1) with view space step size
-	 * 		Translate x to world space
-	 * 		Calculate world space y for world space x
-	 * 		Translate world space y to view space
-	 * 		Draw line segments between world space points
+	 * This function is the central piece of code that is called whenever something changed.
+	 * It resizes the canvas so we have one canvas pixel for one CSS pixel and then redraws
+	 * the entire plot.
+	 * 
+	 * It returns `null` if everything went fine (no error). If the user code caused an exception
+	 * the Error object of it is returned.
 	 */
-	function draw() {
-		// Set the canvas drawing size to the actual display size. In case the sidebar
-		// or window width changed. This also clears the canvas to white.
+	function updateCanvasSizeAndRedraw(user_code_function) {
+		// Set the canvas drawing size to the actual display size (one canvas pixel for one
+		// CSS pixel). We do that in case the sidebar or window width changed (and with
+		// that the CSS size of the canvas). Setting the canvas dimensions also clears the
+		// canvas to white, even if we set it to the same dimensions as before.
 		ctx.canvas.width = ctx.canvas.clientWidth;
 		ctx.canvas.height = ctx.canvas.clientHeight;
 		
-		// World to view space scale: A world space distance multiplied with this value gives us the view space distance.
-		// The first term is the scale needed to get base_width_ws world space units within the smallest canvas dimension (width or height).
+		// Calculate a new ws_to_vs_scale because the size of the canvas element might have changed.
+		// It is created by multiplying two scales (base_scale and view_scale): The first is the scale needed
+		// to get base_width_ws world space units within the canvas width or height (whichever is smaller).
+		// The second is the scale defining how much the user zoomed in or out.
 		var base_scale = Math.min(ctx.canvas.width, ctx.canvas.height) / base_width_ws;
-		var ws_to_vs_scale = base_scale * view_scale;
-		// Transformations from world space to view space and back (for x and y)
-		function x_ws_to_vs(x_ws) { return (ctx.canvas.width / 2) + (x_ws - view_center_ws.x) * ws_to_vs_scale * 1; }
-		function y_ws_to_vs(y_ws) { return (ctx.canvas.height / 2) + (y_ws - view_center_ws.y) * ws_to_vs_scale * -1; }
-		function x_vs_to_ws(x_vs) { return view_center_ws.x + (x_vs - ctx.canvas.width / 2) / ws_to_vs_scale * 1; }
-		function y_vs_to_ws(y_vs) { return view_center_ws.y + (y_vs - ctx.canvas.height / 2) / ws_to_vs_scale * -1; }
+		ws_to_vs_scale = base_scale * view_scale;
 		
-		// Calculate the limits of the view in world space (note that y min is at the bottom of the view and max is at the top because y is flipped)
+		// Redraw then entire plot
+		drawGridAndAxes();
+		if ( typeof user_code_function === "function" ) {
+			try {
+				user_code_function(drawFunction);
+			} catch(e) {
+				return e;
+			}
+		}
+		return null;
+	}
+	
+	/**
+	 * A helper function for updateCanvasSizeAndRedraw() to make the code there better
+	 * readable. It is only used there.
+	 */
+	function drawGridAndAxes() {
+		// Calculate the limits of the view in world space (note that y min is at the bottom of the view
+		// and max is at the top because y is flipped)
 		var x_min_ws = x_vs_to_ws(0), x_max_ws = x_vs_to_ws(ctx.canvas.width - 1);
 		var y_min_ws = y_vs_to_ws(ctx.canvas.height - 1), y_max_ws = y_vs_to_ws(0);
 		
@@ -153,148 +179,205 @@ function plotter(canvas, options) {
 		var y_vs = axes_y_vs;
 		ctx.strokeText("0", x_vs, y_vs);
 		ctx.fillText("0", x_vs, y_vs);
-		
-		// Draw graphs
-		function plot() {
-			var func = null, color = "blue", width = 1, dash_pattern = [];
-			for(var i = 0; i < arguments.length; i++) {
-				if ( typeof arguments[i] == "function" )
-					func = arguments[i];
-				else if ( typeof arguments[i] == "string" )
-					color = arguments[i];
-				else if ( typeof arguments[i] == "number" )
-					width = arguments[i];
-				else if ( Array.isArray(arguments[i]) )
-					dash_pattern = arguments[i];
-			}
-			
-			if (func === null)
-				return;
-			
-			ctx.beginPath();
-			ctx.strokeStyle = color;
-			ctx.lineWidth = width;
-			ctx.setLineDash(dash_pattern);
-			
-			for(var x_vs = 0; x_vs < ctx.canvas.width; x_vs += plot_step_size_vs) {
-				var x_ws = x_vs_to_ws(x_vs);
-				var y_ws = func(x_ws);
-				var y_vs = y_ws_to_vs(y_ws);
-				
-				if (x_vs == 0)
-					ctx.moveTo(x_vs, y_vs);
-				else
-					ctx.lineTo(x_vs, y_vs);
-			}
-			
-			ctx.stroke();
+	}
+	
+	/**
+	 * This function draws the plot for one 2D function. It is made available to the user JavaScript
+	 * code under the name "plot". It takes its parameters in any order. What an argument does
+	 * depends on its type:
+	 * 
+	 * function: Plots the graph of that function. It is called for each x value and has to return
+	 *     the corresponding y value.
+	 * string (e.g. "red" or "hsla(210, 50%, 50%, 0.25)"): The graph will be drawn in that
+	 *     color (default "blue").
+	 * number (e.g. 2): It is used as the line width in pixels for the graph (default 1).
+	 * array (e.g. [10, 5]): It is used to dash lines of the graph. The elements specify distances
+	 *     to alternately draw a line and a gap in pixels. See setLineDash.
+	 */
+	function drawFunction(var_args) {
+		var func = null, color = "blue", width = 1, dash_pattern = [];
+		for(var i = 0; i < arguments.length; i++) {
+			if ( typeof arguments[i] == "function" )
+				func = arguments[i];
+			else if ( typeof arguments[i] == "string" )
+				color = arguments[i];
+			else if ( typeof arguments[i] == "number" )
+				width = arguments[i];
+			else if ( Array.isArray(arguments[i]) )
+				dash_pattern = arguments[i];
 		}
-		if (parsed_code !== null)
-			parsed_code(plot);
-		return null;
+		
+		if (func === null)
+			return;
+		
+		ctx.beginPath();
+		ctx.strokeStyle = color;
+		ctx.lineWidth = width;
+		ctx.setLineDash(dash_pattern);
+		
+		for(var x_vs = 0; x_vs < ctx.canvas.width; x_vs += plot_step_size_vs) {
+			var x_ws = x_vs_to_ws(x_vs);
+			var y_ws = func(x_ws);
+			var y_vs = y_ws_to_vs(y_ws);
+			
+			if (x_vs == 0)
+				ctx.moveTo(x_vs, y_vs);
+			else
+				ctx.lineTo(x_vs, y_vs);
+		}
+		
+		ctx.stroke();
 	}
 	
-	function triggerEvent(name) {
-		var event = new Event(name);
-		ctx.canvas.dispatchEvent(event);
-	}
 	
-	var mouse_down = false, last_pos = { x: 0, y: 0 };
+	//
+	// Event handling
+	//
+	
+	// When the mouse button is down this variable contains the last mouse position (as an
+	// { x: ..., y: ... } object). Otherwise it is set to `null`.
+	var last_mouse_pos = null;
+	
+	// Pan the view with mouse drag
 	ctx.canvas.addEventListener("mousedown", function(event){
 		if (event.target == ctx.canvas) {
-			mouse_down = true;
-			last_pos.x = event.pageX;
-			last_pos.y = event.pageY;
+			last_mouse_pos = { x: event.pageX, y: event.pageY };
 			event.stopPropagation();
 			event.preventDefault();
 		}
 	});
 	document.addEventListener("mousemove", function(event){
-		if (mouse_down) {
-			var dx_vs = event.pageX - last_pos.x;
-			var dy_vs = event.pageY - last_pos.y;
-			last_pos.x = event.pageX;
-			last_pos.y = event.pageY;
+		if (last_mouse_pos) {
+			var dx_vs = event.pageX - last_mouse_pos.x;
+			var dy_vs = event.pageY - last_mouse_pos.y;
+			last_mouse_pos.x = event.pageX;
+			last_mouse_pos.y = event.pageY;
 			
-			// A reason to make the scale available as state variable
-			var base_scale = Math.min(ctx.canvas.width, ctx.canvas.height) / base_width_ws;
-			var ws_to_vs_scale = base_scale * view_scale;
-			
+			// Pan the view by changing the current world space viewport center depending
+			// on the distance the mouse was moved and the current world space to view space
+			// scale. Note that the Y axis is inverted because in mathematics it goes up (world
+			// space) but in the pageY coordinates it goes down (view space).
 			view_center_ws.x -= dx_vs / ws_to_vs_scale * 1;
 			view_center_ws.y -= dy_vs / ws_to_vs_scale * -1;
-			draw();
-			triggerEvent("plotchange");
+			updateCanvasSizeAndRedraw(last_working_user_code_function);
+			ctx.canvas.dispatchEvent(new Event("plotchange"));
 			
 			event.stopPropagation();
 			event.preventDefault();
 		}
 	});
 	ctx.canvas.addEventListener("mouseup", function(event){
-		if (mouse_down) {
-			mouse_down = false;
-			triggerEvent("plotchangeend");
+		if (last_mouse_pos) {
+			last_mouse_pos = null;
+			ctx.canvas.dispatchEvent(new Event("plotchangeend"));
 			event.stopPropagation();
 			event.preventDefault();
 		}
 	});
 	
+	// Zoom in or out with the mouse wheel
 	ctx.canvas.addEventListener("wheel", function(event){
-		// A reason to make the scale available as state variable
-		var base_scale = Math.min(ctx.canvas.width, ctx.canvas.height) / base_width_ws;
-		var ws_to_vs_scale = base_scale * view_scale;
-		function x_vs_to_ws(x_vs) { return view_center_ws.x + (x_vs - ctx.canvas.width / 2) / ws_to_vs_scale * 1; }
-		function y_vs_to_ws(y_vs) { return view_center_ws.y + (y_vs - ctx.canvas.height / 2) / ws_to_vs_scale * -1; }
-		
 		var scale_multiplier = (event.deltaY > 0) ? 0.9 /* zoom out */ : 1 / 0.9 /* zoom in */;
 		var scale_old = ws_to_vs_scale;
 		var scale_new = ws_to_vs_scale * scale_multiplier;
 		
+		// Update the world space view center in a way that the position directly under the
+		// mouse pointer stays where it is. To the user this appears as zooming in or out of
+		// the region where the mouse currently is at.
+		// Mathematically the idea is to move the world space view center closer to the world
+		// space mouse position (zoom in) or farther away from it (zoom out). How much depends
+		// on the ratio between the old and new scale.
 		var point_x_ws = x_vs_to_ws(event.offsetX), point_y_ws = y_vs_to_ws(event.offsetY);
 		var view_center_old = view_center_ws;
 		var view_center_new = {
-			//x: view_center_old.x + (point_x_ws - view_center_old.x) * (1 - (scale_old / scale_new)),
-			//y: view_center_old.y + (point_y_ws - view_center_old.y) * (1 - (scale_old / scale_new))
 			x: point_x_ws + (view_center_old.x - point_x_ws) * (scale_old / scale_new),
 			y: point_y_ws + (view_center_old.y - point_y_ws) * (scale_old / scale_new)
 		};
 		
 		view_center_ws = view_center_new;
 		view_scale *= scale_multiplier;
-		draw();
-		triggerEvent("plotchange");
-		triggerEvent("plotchangeend");
+		updateCanvasSizeAndRedraw(last_working_user_code_function);
+		ctx.canvas.dispatchEvent(new Event("plotchange"));
+		ctx.canvas.dispatchEvent(new Event("plotchangeend"));
 		
 		event.stopPropagation();
 		event.preventDefault();
 	});
 	
+	
+	//
+	// Public interface
+	//
 	return {
-		update: function(code){
-			//draw();
-			
-			// If the code contains errors we don't want to change the plot.
-			// So try to parse it first before clearing the plot.
-			try {
-				parsed_code = Function("plot", code);
-				draw();
-			} catch(e) {
-				console.error(e);
-				return e.toString();
+		/**
+		 * Redraw the plot, optionally with new JavaScript code from the user. When called without
+		 * an argument it just redraws the plot. When called with one string argument the string is
+		 * used as JavaScript code and the plot is redrawn with that code.
+		 * 
+		 * If everything went fine `null` is returned (no error). If the code contained errors the Error
+		 * object of the exception is returned (e.g. a TypeError for an unknown function name).
+		 */
+		update: function(new_code){
+			var error = null;
+			if (typeof new_code === "string") {
+				// Try to compile and plot new user code, remember the error if one of those
+				// two steps goes wrong.
+				try {
+					var new_code_function = Function("plot", new_code);
+					error = updateCanvasSizeAndRedraw(new_code_function);
+				} catch(e) {
+					error = e;
+				}
+				
+				if (error === null) {
+					// Plotting new user code worked fine, use it for all future redraws
+					last_working_user_code_function = new_code_function;
+				} else {
+					// Failed to plot new user code, restore old canvas (redraw with old code)
+					updateCanvasSizeAndRedraw(last_working_user_code_function);
+				}
+			} else {
+				// No argument, just redraw with existing user code
+				error = updateCanvasSizeAndRedraw(last_working_user_code_function);
 			}
-			triggerEvent("plotchange");
-			return null;
+			
+			ctx.canvas.dispatchEvent(new Event("plotchangeend"));
+			return error;
 		},
 		
+		/**
+		 * Returns or sets the current scale representing the users zoom. It's larger than 1 when
+		 * the user zoomed in and smaller than 1 (but never 0) when the user zoomed out.
+		 * 
+		 * When the function is called without an argument the current scale is returned. When it
+		 * is called with one number argument the current scale is set to this value but the plot is
+		 * not redrawn. You have to call update() for that.
+		 * 
+		 * For example a scale of 2.0 shows the plot twice as large as 1.0 (zoomed in).
+		 * A scale of 0.5 shows the plot twice as small as 1.0 (zoomed out).
+		 */
 		scale: function(new_scale){
-			if (new_scale !== undefined) {
+			if (typeof new_scale === "number") {
 				view_scale = new_scale;
 				return this;
 			} else {
 				return view_scale;
 			}
 		},
+		
+		/**
+		 * Returns or sets the current center of the view (expressed in world space coordinates).
+		 * 
+		 * When the function is called without arguments it returns the current center as an
+		 * `{ x: ..., y: ... }` object. When it's called with two number arguments the current center
+		 * is set to these coordinates (x and y) but the plot is not redawn (call update() for that).
+		 * 
+		 * For example when the center is {x: 0, y: 0} the origin of the plot is shown at the center
+		 * of the canvas. If it's {x: 3.141, y: 0} this world space position is shown at the center of
+		 * the canvas.
+		 */
 		center: function(new_view_center_x, new_view_center_y){
-			if (new_view_center_x !== undefined && new_view_center_y !== undefined) {
+			if (typeof new_view_center_x === "number" && typeof new_view_center_y === "number") {
 				view_center_ws = { x: new_view_center_x, y: new_view_center_y };
 				return this;
 			} else {
