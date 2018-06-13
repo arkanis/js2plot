@@ -384,6 +384,11 @@ function js2plot(canvas, options) {
 	
 	// Zoom in or out with the mouse wheel
 	ctx.canvas.addEventListener("wheel", function(event){
+		// Calculate cross-browser offsetX and offsetY. Older Firefox versions don't support them
+		// as properties of the event object.
+		var bb = this.getBoundingClientRect();
+		var offsetX = event.pageX - bb.left, offsetY = event.pageY - bb.top;
+		
 		var scale_multiplier = (event.deltaY > 0) ? 0.9 /* zoom out */ : 1 / 0.9 /* zoom in */;
 		var scale_old = ws_to_vs_scale;
 		var scale_new = ws_to_vs_scale * scale_multiplier;
@@ -394,7 +399,7 @@ function js2plot(canvas, options) {
 		// Mathematically the idea is to move the world space view center closer to the world
 		// space mouse position (zoom in) or farther away from it (zoom out). How much depends
 		// on the ratio between the old and new scale.
-		var point_x_ws = x_vs_to_ws(event.offsetX), point_y_ws = y_vs_to_ws(event.offsetY);
+		var point_x_ws = x_vs_to_ws(offsetX), point_y_ws = y_vs_to_ws(offsetY);
 		var view_center_old = view_center_ws;
 		var view_center_new = {
 			x: point_x_ws + (view_center_old.x - point_x_ws) * (scale_old / scale_new),
