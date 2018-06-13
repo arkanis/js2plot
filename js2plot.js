@@ -366,7 +366,7 @@ function js2plot(canvas, options) {
 			event.preventDefault();
 		}
 	});
-	ctx.canvas.addEventListener("mouseup", function(event){
+	document.addEventListener("mouseup", function(event){
 		if (last_mouse_pos) {
 			last_mouse_pos = null;
 			ctx.canvas.dispatchEvent(new Event("plotchangeend"));
