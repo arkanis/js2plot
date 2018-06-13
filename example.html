@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<meta charset=utf-8>
+<title>js2plot example</title>
+
+<canvas id=plot width=512 height=256></canvas>
+<script src="js2plot.js"></script>
+<script>
+	var plot = js2plot("canvas#plot", {
+		base_size_ws: 4,
+		grid_line_spacing_ws: Math.PI / 8,
+		major_grid_line_interval: 4,
+		axes_number_to_text: (n) => (n / Math.PI).toString() + "π"
+	});
+	plot.update(`
+		var a = (x) => Math.sin(x);
+		plot("green", a);
+	`);
+</script>

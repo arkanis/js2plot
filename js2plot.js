@@ -1,11 +1,111 @@
+/**
+ * # js2plot
+ * 
+ * Small library to plot 2D mathematical JavaScript functions in a canvas element with panning and
+ * zooming. Written as part of a simple function plotter utility (http://arkanis.de/projects/js2plot/)
+ * 
+ * By Stephan Soller <stephan.soller@helionweb.de>, released under the MIT License.
+ * 
+ * 
+ * # Features
+ * 
+ * - You can write the functions directly in JavaScript. For more complex functions this is
+ *   simpler than writing math expressions.
+ * - Panning and zooming is handled by js2plot. You can freely move around in the plot and
+ *   look at areas of interest.
+ * - Triggers "plotchange" and "plotchangeend" events when the user interacts with the plot.
+ * 
+ * 
+ * # Usage example
+ * 
+ *     <!DOCTYPE html>
+ *     <meta charset=utf-8>
+ *     <title>js2plot example</title>
+ *     
+ *     <canvas id=plot width=512 height=256></canvas>
+ *     <script src="js2plot.js"></script>
+ *     <script>
+ *         var plot = js2plot("canvas#plot", {
+ *             base_size_ws: 4,
+ *             grid_line_spacing_ws: Math.PI / 8,
+ *             major_grid_line_interval: 4,
+ *             axes_number_to_text: (n) => (n / Math.PI).toString() + "π"
+ *         });
+ *         plot.update(`
+ *             var a = (x) => Math.sin(x);
+ *             plot("green", a);
+ *         `);
+ *     </script>
+ * 
+ * 
+ * # Documentation
+ * 
+ * Call the js2plot() function to wrap a canvas element into a plot. You can then plot different
+ * JavaScript code with the plots update() function. See the documentation at the end of the
+ * source code (the public interface).
+ * 
+ * The js2plot() function itself takes 2 arguments:
+ * 
+ * canvas: Either an HTMLCanvasElement or a CSS selector (as string). If it's a string
+ *     document.querySelector() will be called with the selector. The result is expected to be
+ *     a canvas element.
+ * 
+ * options (optional): An object with settings for the plot.
+ *   
+ * - base_size_ws: The width in world space units that should at least be visible in the plot
+ *       when not zoomed in or out (a view_scale of 1.0). The scale is calcuated based on the
+ *       canvases width or height (whichever is smaller). Default: 10.
+ *   
+ * - grid_line_spacing_ws: The distance (in world space units) between grid lines at a view_scale
+ *       of 1.0 (not zoomed in or out). Default: 1/5 (5 grid lines for every world space unit).
+ *   
+ * - major_grid_line_interval: Show a major grid line every n minor grid lines. Default: 5 (one
+ *       major grid line every 5 minor grid lines).
+ *   
+ * - plot_step_size_vs: The step size in view space units (canvas pixels) that is used when drawing
+ *       function plots. Default: 2 (a function is drawn as a line with one point every 2 pixels).
+ *   
+ * - view_scale: The scale representing the initial user zoom. See the scale() function at the end
+ *       for more details. Default 1.0 (not zoomed in or out).
+ *   
+ * - view_center_ws: The initial center of the plot in world space coordinates. See the center() function
+ *       at the end for more details. Default: 0, 0 (the origin is shown at the center of the canvas).
+ *   
+ * - axes_number_to_text: A function that takes a number and returns a string. Each number drawn
+ *       at the axes is passed through this function. You can use it to format those numbers in a special
+ *       way. Default: Calls toString() on the number.
+ * 
+ * 
+ * # Events
+ * 
+ * js2plot fires several events on the canvas element when the plot has changed.
+ * 
+ * When the user pans the view a "plotchange" event is fired for every mousemove. At the end of
+ * panning a "plotchangeend" event is fired (when the mouse button is released). "plotchangeend" is
+ * also fired when the user zooms in or out with the mouse wheel or when the update() function is done.
+ * 
+ * These events signal that the plots state has changed. You can use the `scale()` and `center()`
+ * functions of the plot object to read the current state (and e.g. save it).
+ */
 function js2plot(canvas, options) {
-	var base_width_ws = 10;
-	var grid_line_spacing_ws = 1/5;
-	var major_grid_lines_every_n = 5;
-	var plot_step_size_vs = 2;
+	//
+	// Settings
+	//
+	if (options === undefined)
+		options = {};
+	var base_size_ws = (options.base_size_ws !== undefined) ? options.base_size_ws : 10;
+	var grid_line_spacing_ws = (options.grid_line_spacing_ws !== undefined) ? options.grid_line_spacing_ws : 1/5;
+	var major_grid_line_interval = (options.major_grid_line_interval !== undefined) ? options.major_grid_line_interval : 5;
+	var plot_step_size_vs = (options.plot_step_size_vs !== undefined) ? options.plot_step_size_vs : 2;
+	var axes_number_to_text = (options.axes_number_to_text !== undefined) ? options.axes_number_to_text : function(n){
+		return n.toString();
+	};
 	
-	var view_scale = 1.0;
-	var view_center_ws = { x: 0, y: 0 };
+	//
+	// State of the plot
+	//
+	var view_scale = (options.view_scale !== undefined) ? options.view_scale : 1.0;
+	var view_center_ws = (options.view_center_ws !== undefined) ? options.view_center_ws : { x: 0, y: 0 };
 	
 	var ctx = (typeof canvas == "string" ? document.querySelector(canvas) : canvas).getContext("2d");
 	var last_working_user_code_function = null;
@@ -56,9 +156,9 @@ function js2plot(canvas, options) {
 		
 		// Calculate a new ws_to_vs_scale because the size of the canvas element might have changed.
 		// It is created by multiplying two scales (base_scale and view_scale): The first is the scale needed
-		// to get base_width_ws world space units within the canvas width or height (whichever is smaller).
+		// to get base_size_ws world space units within the canvas width or height (whichever is smaller).
 		// The second is the scale defining how much the user zoomed in or out.
-		var base_scale = Math.min(ctx.canvas.width, ctx.canvas.height) / base_width_ws;
+		var base_scale = Math.min(ctx.canvas.width, ctx.canvas.height) / base_size_ws;
 		ws_to_vs_scale = base_scale * view_scale;
 		
 		// Redraw then entire plot
@@ -109,7 +209,7 @@ function js2plot(canvas, options) {
 		ctx.beginPath();
 		ctx.strokeStyle = "hsl(0, 0%, 80%)"; 
 		ctx.lineWidth = 1;
-		var major_grid_line_spacing_ws = minor_grid_line_spacing_ws * major_grid_lines_every_n;
+		var major_grid_line_spacing_ws = minor_grid_line_spacing_ws * major_grid_line_interval;
 		
 		for(var n = Math.floor(x_min_ws / major_grid_line_spacing_ws); n <= Math.ceil(x_max_ws / major_grid_line_spacing_ws); n++) {
 			var grid_x_vs = Math.round(x_ws_to_vs(n * major_grid_line_spacing_ws)) + 0.5;
@@ -158,7 +258,7 @@ function js2plot(canvas, options) {
 			
 			var x_vs = Math.round(x_ws_to_vs(n * major_grid_line_spacing_ws)) + 0.5;
 			var y_vs = axes_y_vs;
-			var text = n * major_grid_line_spacing_ws;
+			var text = axes_number_to_text(n * major_grid_line_spacing_ws);
 			ctx.strokeText(text, x_vs, y_vs);
 			ctx.fillText(text, x_vs, y_vs);
 		}
@@ -170,7 +270,7 @@ function js2plot(canvas, options) {
 			
 			var y_vs = Math.round(y_ws_to_vs(n * major_grid_line_spacing_ws)) + 0.5;
 			var x_vs = axes_x_vs;
-			var text = n * major_grid_line_spacing_ws;
+			var text = axes_number_to_text(n * major_grid_line_spacing_ws);
 			ctx.strokeText(text, x_vs, y_vs);
 			ctx.fillText(text, x_vs, y_vs);
 		}
