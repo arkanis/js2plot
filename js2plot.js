@@ -327,6 +327,7 @@ function js2plot(canvas, options) {
 			var y_ws = func(x_ws);
 			var y_vs = y_ws_to_vs(y_ws);
 			
+			y_vs = Math.min(Math.max(y_vs, -1), ctx.canvas.height+1);
 			if (x_vs == 0)
 				ctx.moveTo(x_vs, y_vs);
 			else
